@@ -8,6 +8,7 @@ from chat import Chat
 import streamlit as st
 import openai as oa
 
+context_size = 8000
 
 def save_chat_names():
     with open('chats/chat_names.json', 'w') as f:
@@ -19,7 +20,12 @@ def load_chat_names():
         st.session_state['chat_names'] = json.load(f)
 
 
-st.set_page_config(layout='wide')
+if "page_config_set" not in st.session_state:
+
+    st.set_page_config(layout='wide')
+
+    st.session_state.page_config_set = True
+
 
 if 'main' not in st.session_state:
     with open('main.json', 'r') as f:
@@ -70,7 +76,6 @@ current_chat = st.session_state['current_chat']
 #### SIDEBAR
 with st.sidebar:
     st.title('ChattierGPT')
-
     with st.expander('Global parameters', expanded=False):
         def api_key_changed():
             st.session_state['main']['api_key'] = st.session_state['api_key_input']
@@ -151,12 +156,12 @@ with st.expander('Parameters'):
                                        help=tooltips['top_p'])
 
     with col2:
-        current_chat.max_tokens = st.slider('Maximum length', min_value=1, max_value=min(4096 - system_tokens - 1, 2048),
-                                            value=min(current_chat.max_tokens, 4096 - system_tokens - 1), help=tooltips['max_tokens'])
+        current_chat.max_tokens = st.slider('Maximum length', min_value=1, max_value=min(context_size - system_tokens - 1, 8000),
+                                            value=min(current_chat.max_tokens, context_size - system_tokens - 1), help=tooltips['max_tokens'])
 
         current_chat.max_context_tokens = st.slider('Maximum context length', min_value=system_tokens,
-                                                    max_value=4096 - current_chat.max_tokens,
-                                                    value=min(4096 - current_chat.max_tokens, max(system_tokens, current_chat.max_context_tokens)),
+                                                    max_value=context_size - current_chat.max_tokens,
+                                                    value=max(context_size - current_chat.max_tokens, max(system_tokens, current_chat.max_context_tokens)),
                                                     help=tooltips['max_context_tokens'])
 
     with col3:
@@ -181,25 +186,11 @@ with st.expander('Parameters'):
     if st.button('Save parameters'):
         current_chat.save()
 
-#### PROMPT
-with st.form('prompt', clear_on_submit=True):
-    prompt = st.text_area('Prompt')
-
-    col1, _ = st.columns([1, 10])
-
-    with col1:
-        if st.form_submit_button('Send', use_container_width=True):
-            if len(prompt) > 0:
-                current_chat.add_message(prompt)
-
-            current_chat.generate()
-            current_chat.save()
-
 #### MESSAGES
 path = list(enumerate(current_chat.get_selected_path()))
 ''
 
-for i, m in path[::-1]:
+for i, m in path:
     if m['role'] != 'system':
         container = st.empty()
 
@@ -252,3 +243,28 @@ for i, m in path[::-1]:
                                        key='number_%d' % i)
 
         st.markdown('---')
+
+api_call_in_progress = st.empty()
+
+#### PROMPT
+with st.form('prompt', clear_on_submit=True):
+    prompt = st.text_area('Prompt')
+    col1, _ = st.columns([1, 10])
+
+    with col1:
+
+        if st.form_submit_button('Send', use_container_width=True):
+
+            if len(prompt) > 0:
+                current_chat.add_message(prompt)
+
+            api_call_in_progress.text("Waiting for GPT API response...")
+
+            current_chat.generate()
+
+            current_chat.save()
+
+            api_call_in_progress.empty()
+
+            st.experimental_rerun()
+

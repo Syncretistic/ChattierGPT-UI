@@ -5,8 +5,8 @@ import openai as oa
 import tiktoken as tt
 
 class Chat:
-    def __init__(self, created=None, model='gpt-3.5-turbo', context=None, temperature=0.7, top_p=1.0, max_tokens=512,
-                 max_context_tokens=4096, frequency_penalty=0.0, presence_penalty=0.0):
+    def __init__(self, created=None, model='gpt-4', context=None, temperature=0.7, top_p=1.0, max_tokens=4000,
+                 max_context_tokens=8000, frequency_penalty=0.0, presence_penalty=0.0):
         self.created = int(datetime.now().timestamp()) if created is None else created
         self.model = model
         self.encoder = tt.encoding_for_model(model)
